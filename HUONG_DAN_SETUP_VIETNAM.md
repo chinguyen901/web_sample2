@@ -2,6 +2,8 @@
 
 Tai lieu nay huong dan ban chay du an tu dau den cuoi: cai dat local, tao database, seed du lieu, test Stripe, va deploy len Vercel.
 
+**Quy dinh backend:** backend bat buoc dung Next.js API Routes/Route Handlers (`app/api/*/route.ts`) voi TypeScript, khong dung Express/NestJS/Fastify rieng.
+
 ---
 
 ## 1) Yeu cau truoc khi bat dau

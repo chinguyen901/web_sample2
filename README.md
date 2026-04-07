@@ -7,6 +7,11 @@ Modern premium e-commerce web app built with:
 - Vercel Serverless API routes
 - Stripe test checkout
 
+## Backend Rule
+
+- Backend bat buoc dung Next.js (`app/api/*/route.ts`) voi TypeScript.
+- Khong su dung framework backend rieng (Express, NestJS, Fastify).
+
 ## Features
 
 - Email/password authentication (register, login, logout)
@@ -61,10 +66,17 @@ Open `http://localhost:3000`.
 
 1. Push repo to Git provider.
 2. Import project in Vercel.
-3. Add environment variables from `.env.example`.
-4. Connect Vercel Postgres and update `DATABASE_URL`/`DIRECT_URL`.
-5. Run Prisma migration in production:
+3. If this app is inside a subfolder, set **Root Directory** correctly (example: `web_sample2`).
+4. Add environment variables from `.env.example`.
+5. Connect Vercel Postgres and update `DATABASE_URL`/`DIRECT_URL`.
+6. Run Prisma migration in production:
    - `npx prisma migrate deploy`
-6. Set Stripe webhook endpoint in Stripe dashboard:
+7. Set Stripe webhook endpoint in Stripe dashboard:
    - `https://<your-domain>/api/stripe/webhook`
-7. Deploy.
+8. Deploy.
+
+### Notes for stable Vercel builds
+
+- Prisma Client is auto-generated via `postinstall` (`prisma generate`).
+- Homepage uses dynamic rendering to avoid querying database during build time.
+- Checkout route auto-falls back to `VERCEL_URL` when `NEXT_PUBLIC_APP_URL` is not set.

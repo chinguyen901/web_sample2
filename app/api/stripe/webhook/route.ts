@@ -4,6 +4,8 @@ import Stripe from "stripe";
 import { getStripeClient } from "@/lib/stripe";
 import { db } from "@/lib/db";
 
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   const stripe = getStripeClient();
   const rawBody = await req.text();

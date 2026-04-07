@@ -3,13 +3,18 @@ import { db } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { getStripeClient } from "@/lib/stripe";
 
-export async function POST() {
+export const runtime = "nodejs";
+
+function getBaseUrl(req: Request) {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return new URL(req.url).origin;
+}
+
+export async function POST(req: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  if (!process.env.NEXT_PUBLIC_APP_URL) {
-    return NextResponse.json({ error: "NEXT_PUBLIC_APP_URL missing" }, { status: 500 });
-  }
+  const baseUrl = getBaseUrl(req);
 
   const items = await db.cartItem.findMany({
     where: { userId: user.id },
@@ -36,8 +41,8 @@ export async function POST() {
         }
       }
     })),
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
+    success_url: `${baseUrl}/checkout/success`,
+    cancel_url: `${baseUrl}/checkout/cancel`,
     metadata: { userId: user.id }
   });
 
@@ -60,7 +65,7 @@ export async function POST() {
   await db.cartItem.deleteMany({ where: { userId: user.id } });
 
   return NextResponse.redirect(
-    session.url || `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
+    session.url || `${baseUrl}/checkout/cancel`,
     { status: 303 }
   );
 }

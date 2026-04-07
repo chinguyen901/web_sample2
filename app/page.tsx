@@ -1,6 +1,8 @@
 import { db } from "@/lib/db";
 import { ProductCard } from "@/components/product-card";
 
+export const dynamic = "force-dynamic";
+
 type HomeProps = {
   searchParams: Promise<{ q?: string; category?: string }>;
 };
