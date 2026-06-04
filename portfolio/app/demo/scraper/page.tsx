@@ -116,7 +116,7 @@ export default function ScraperDemo() {
             ← Back to Portfolio
           </Link>
           <a
-            href="https://www.upwork.com"
+            href="https://www.upwork.com/freelancers/~012e9e4cf475446b7e"
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs bg-cyan-500 hover:bg-cyan-400 text-zinc-950 font-semibold px-3 py-1.5 rounded transition-colors"

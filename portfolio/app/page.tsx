@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 
 const skills = [
@@ -134,58 +135,80 @@ export default function Home() {
 
       {/* ── Hero ── */}
       <section className="pt-36 pb-28 px-6 max-w-5xl mx-auto">
-        <div className="inline-flex items-center gap-2 text-xs text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 rounded-full px-3 py-1 mb-8">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
-          Available for new projects · $15/hr
-        </div>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-12">
+          {/* Left: text */}
+          <div className="flex-1 min-w-0">
+            <div className="inline-flex items-center gap-2 text-xs text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 rounded-full px-3 py-1 mb-8">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+              Available for new projects · $15/hr
+            </div>
 
-        <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-none mb-4">
-          Chi Nguyen
-        </h1>
-        <p className="text-2xl md:text-3xl text-zinc-500 font-medium mb-8">
-          Automation Developer
-        </p>
-        <p className="text-zinc-400 text-lg max-w-2xl mb-10 leading-relaxed">
-          I build automation tools that save time and reduce manual work — from
-          web scraping and Telegram bots to API integrations and browser
-          automation.
-        </p>
+            <h1 className="text-5xl md:text-7xl font-bold tracking-tight leading-none mb-4">
+              Chi Nguyen
+            </h1>
+            <p className="text-2xl md:text-3xl text-zinc-500 font-medium mb-8">
+              Automation Developer
+            </p>
+            <p className="text-zinc-400 text-lg max-w-2xl mb-10 leading-relaxed">
+              I build automation tools that save time and reduce manual work — from
+              web scraping and Telegram bots to API integrations and browser
+              automation.
+            </p>
 
-        <div className="flex flex-wrap gap-4 mb-20">
-          <a
-            href={UPWORK_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-6 py-3 bg-cyan-500 text-zinc-950 font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
-          >
-            Hire on Upwork ↗
-          </a>
-          <a
-            href="#projects"
-            className="px-6 py-3 border border-zinc-700 text-zinc-300 rounded-lg hover:border-zinc-500 hover:text-zinc-50 transition-colors"
-          >
-            View Projects
-          </a>
-        </div>
+            <div className="flex flex-wrap gap-4 mb-10">
+              <a
+                href={UPWORK_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-6 py-3 bg-cyan-500 text-zinc-950 font-semibold rounded-lg hover:bg-cyan-400 transition-colors"
+              >
+                Hire on Upwork ↗
+              </a>
+              <a
+                href="#projects"
+                className="px-6 py-3 border border-zinc-700 text-zinc-300 rounded-lg hover:border-zinc-500 hover:text-zinc-50 transition-colors"
+              >
+                View Projects
+              </a>
+            </div>
 
-        {/* Tech tags */}
-        <div className="flex flex-wrap gap-2">
-          {[
-            "Python",
-            "Playwright",
-            "Selenium",
-            "Telegram API",
-            "REST API",
-            "Chrome Extension",
-            "BeautifulSoup",
-          ].map((tag) => (
-            <span
-              key={tag}
-              className="text-xs px-3 py-1 rounded-full border border-zinc-800 text-zinc-500 bg-zinc-900"
-            >
-              {tag}
-            </span>
-          ))}
+            {/* Tech tags */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                "Python",
+                "Playwright",
+                "Selenium",
+                "Telegram API",
+                "REST API",
+                "Chrome Extension",
+                "BeautifulSoup",
+              ].map((tag) => (
+                <span
+                  key={tag}
+                  className="text-xs px-3 py-1 rounded-full border border-zinc-800 text-zinc-500 bg-zinc-900"
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Right: avatar */}
+          <div className="flex-shrink-0 flex justify-center md:justify-end">
+            <div className="relative w-56 h-56 md:w-72 md:h-72">
+              {/* Glow ring */}
+              <div className="absolute inset-0 rounded-full bg-cyan-500/20 blur-2xl" />
+              <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-zinc-700 ring-4 ring-zinc-900">
+                <Image
+                  src="/avatar.png"
+                  alt="Chi Nguyen"
+                  fill
+                  className="object-cover"
+                  priority
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
