@@ -7,152 +7,162 @@ Web portfolio Next.js 14 (TypeScript + Tailwind CSS) cho dịch vụ Automation/
 ```
 app/
   layout.tsx                  — Root layout + metadata SEO
-  page.tsx                    — Single-page portfolio (hero với avatar, skills, projects, process, contact)
-  globals.css                 — Tailwind base + smooth scroll
+  page.tsx                    — Single-page (hero+avatar, skills, projects+demo links, process, contact)
   demo/
-    price-alert/page.tsx      — Demo: Telegram Price Alert Bot
-    scraper/page.tsx          — Demo: E-commerce Data Scraper
+    price-alert/page.tsx      — Demo 1: Price Alert Bot
+    scraper/page.tsx          — Demo 2: E-commerce Scraper
     job-monitor/
-      page.tsx                — Demo: Job Board Auto-Monitor
+      page.tsx                — Demo 3: Job Board Monitor
       mockJobs.ts             — 15 job entries mẫu
-    chrome-extension/page.tsx — Demo: Chrome Extension Simulator
+    chrome-extension/page.tsx — Demo 4: Chrome Extension Automator
   api/demo/
-    price/route.ts            — Proxy CoinGecko API
-    scrape/route.ts           — Backend scraping với cheerio
+    price/route.ts            — CoinGecko simple/price proxy (+ market_cap, vol)
+    chart/route.ts            — CoinGecko market_chart 24h proxy
+    ai/route.ts               — Gemini 1.5 Flash market analysis
+    scrape/route.ts           — cheerio scraper cho books.toscrape.com
 public/
-  avatar.png                  — Ảnh cá nhân, hiển thị trong hero section
+  avatar.png                  — Ảnh cá nhân, hero section (next/image)
 ```
 
 ## Chạy local
 ```bash
 npm run dev   # http://localhost:3000
-npm run build # Production build
+npm run build # production check
 ```
 
 ## Stack
-- Next.js 14.2.5 (App Router, `"use client"` cho interactive demos)
-- TypeScript strict
-- Tailwind CSS 3.4
-- `cheerio` — HTML parser nhẹ cho scraper demo
-- `next/image` — tối ưu ảnh avatar
+- Next.js 14.2.5 · TypeScript strict · Tailwind CSS 3.4
+- `cheerio` — HTML parsing trong scraper API
+- `next/image` — tối ưu avatar
+- Google Gemini 1.5 Flash — AI market analysis (key trong `/api/demo/ai/route.ts`)
 
 ---
 
-## Chi tiết từng Demo
+## Demo 1 — `/demo/price-alert` (Telegram Price Alert Bot)
+
+### Ý tưởng bán hàng
+Bot tự theo dõi giá 24/7, bắn Telegram ngay khi giá vượt mục tiêu — không cần ngồi nhìn màn hình.
+
+### Tính năng v2
+- **Stats row** — Current Price, 24h Change, Market Cap, 24h Volume (live từ CoinGecko)
+- **24h Sparkline chart** — SVG tự vẽ từ `market_chart` API, màu xanh/đỏ tự động theo trend
+- **AI Market Analysis** — Gọi Gemini 1.5 Flash với price data, trả 2 câu phân tích
+- **Telegram window mock** — UI giống Telegram desktop thật (`#17212b` background, bubble tin nhắn từ bot, input bar)
+- Polling mỗi 4s, dùng `useRef` để tránh double-fire
+
+### Logic từng phần
+**SparklineChart:** nhận `[timestamp, price][]` → tính min/max → normalize → vẽ SVG path + gradient area + dot cuối cùng + time labels
+
+**TelegramWindow:** component riêng, nhận `TelegramMsg[]`, auto-scroll khi có tin mới, styled như Telegram dark theme
+
+**AI Analysis (`/api/demo/ai/route.ts`):**
+- Gửi coin name + currentPrice + change24h tới `gemini-1.5-flash`
+- Nếu API fail → fallback text dựa vào sign của change24h
+- Key: `AQ.Ab8RN6IJctQi_FtVIY7rV4ZRA0yShNiFxkpF0bJ9LpDLhE95qw` (Google AI Studio free tier)
+
+**Chart API (`/api/demo/chart/route.ts`):**
+- Fetch `coins/{id}/market_chart?days=1&interval=hourly`
+- Fallback: generate 25 noise points xung quanh base price
+
+### Câu hỏi khách hàng hay hỏi
+- *"Bot chạy 24/7 không?"* → Có, deploy VPS/Raspberry Pi, asyncio infinite loop
+- *"Hỗ trợ bao nhiêu coin?"* → CoinGecko 10,000+ coin, chỉ cần truyền coin ID
+- *"Alert nhiều điều kiện cùng lúc?"* → Có, mỗi điều kiện 1 coroutine riêng
 
 ---
 
-### 1. Telegram Price Alert Bot — `/demo/price-alert`
+## Demo 2 — `/demo/scraper` (E-commerce Data Scraper)
 
-**Ý tưởng bán hàng:** Khách hàng không muốn ngồi nhìn màn hình chờ giá coin/cổ phiếu. Bot tự làm việc đó và bắn Telegram ngay khi điều kiện thỏa mãn.
+### Ý tưởng bán hàng
+Thu thập giá, tồn kho, rating hàng nghìn sản phẩm tự động, export CSV trong vài giây.
 
-**Logic hoạt động:**
-1. User chọn coin (BTC hoặc ETH), nhập target price, chọn direction (above/below)
-2. Nhấn "Start Monitoring" → `setInterval` 4 giây gọi `/api/demo/price`
-3. API route proxy request tới CoinGecko `/simple/price` — lấy `usd` và `usd_24h_change`
-4. Mỗi tick so sánh `current >= target` (hoặc `<=`) — nếu thỏa → render mock Telegram notification card
-5. Dùng `useRef` cho `triggeredRef` để tránh fire nhiều lần khi giá vẫn ở mức đó
-6. Nếu CoinGecko trả lỗi → fallback hardcode BTC ~67k, ETH ~3.5k
+### Tính năng v2
+- **Stats dashboard** — Products scraped, In Stock %, Avg Price (range), 5-star count
+- **Filter/Sort** — Sort by price↑↓ / rating / title A-Z; filter by rating (1-5★); filter by availability
+- **CSV Export** — Client-side, `Blob + URL.createObjectURL`, không cần backend
+- **Scrape timing** — Hiển thị "X products in Y.Zs" sau khi xong
+- **Animated log terminal** — 8 bước log hiện lần lượt (280ms/bước)
 
-**File quan trọng:**
-- `app/api/demo/price/route.ts` — fetch CoinGecko, fallback data nếu 429/lỗi
-- `app/demo/price-alert/page.tsx` — toàn bộ UI + polling logic
+### Logic
+**Filter/Sort (`useMemo`):** `processed` array được tính lại mỗi khi `sortKey`, `filterRating`, `filterStock` thay đổi — không re-fetch
 
-**Câu hỏi khách hàng hay hỏi:**
-- *"Bot có chạy 24/7 không?"* → Có, deploy trên VPS/Raspberry Pi, process không bao giờ tắt
-- *"Hỗ trợ bao nhiêu coin?"* → Không giới hạn, CoinGecko có 10,000+ coin
-- *"Có thể alert nhiều điều kiện cùng lúc không?"* → Có, mỗi điều kiện chạy một coroutine riêng
+**CSV Export (`downloadCSV`):**
+- Build string với `header + rows`
+- `Blob(['text/csv'])` → `URL.createObjectURL` → click `<a>` programmatically → revoke URL
 
----
+**Scrape API (`/api/demo/scrape/route.ts`):**
+- Fetch page HTML từ `books.toscrape.com` với User-Agent + 8s timeout
+- `cheerio.load(html)` → select `article.product_pod` → extract 5 fields
+- Fallback: 2 hardcoded products
 
-### 2. E-commerce Data Scraper — `/demo/scraper`
+**books.toscrape.com:** Trang tạo ra đặc biệt để luyện scraping, không block, dữ liệu ổn định 50 trang × 20 sản phẩm = 1000 products.
 
-**Ý tưởng bán hàng:** Thu thập giá, tồn kho, review từ hàng nghìn sản phẩm tự động — không cần copy-paste bằng tay.
-
-**Logic hoạt động:**
-1. User chọn page (1–50) rồi nhấn "Scrape"
-2. Frontend animate 8 bước log (Initializing → Returning JSON) với `setTimeout` 300ms/bước
-3. Đồng thời gọi `/api/demo/scrape?page=N`
-4. API route fetch `https://books.toscrape.com/catalogue/page-N.html` với User-Agent header và 8s timeout
-5. Dùng `cheerio.load(html)` rồi query `article.product_pod` — extract từng field:
-   - `h3 a[title]` → tên sách
-   - `p.price_color` → giá (£)
-   - `p.star-rating[class]` → rating chữ (One/Two/Three/Four/Five)
-   - `p.availability` → In stock / Out of stock
-   - `img[src]` → ảnh (fix URL `../` → `https://books.toscrape.com/`)
-6. Nếu scrape fail (timeout, block) → trả fallback 2 sản phẩm cứng
-
-**books.toscrape.com là gì?** — Trang web được tạo ra đặc biệt để luyện scraping, không block bot, dữ liệu ổn định.
-
-**File quan trọng:**
-- `app/api/demo/scrape/route.ts` — cheerio parsing + fallback
-- `app/demo/scraper/page.tsx` — log animation + product grid
-
-**Câu hỏi khách hàng hay hỏi:**
-- *"Scraper có bị block không?"* → Có thể, tùy site. Giải pháp: rotate User-Agent, thêm delay, dùng proxy
-- *"Dùng Playwright hay BeautifulSoup?"* → Site dùng JS động → Playwright. Site HTML tĩnh → BeautifulSoup/cheerio (nhanh hơn 10x)
-- *"Lưu data ở đâu?"* → CSV, PostgreSQL, Google Sheets — tùy yêu cầu
+### Câu hỏi khách hàng hay hỏi
+- *"Scraper có bị block không?"* → Tùy site. Giải pháp: rotate User-Agent, delay, proxy rotation
+- *"Playwright vs BeautifulSoup?"* → JS động → Playwright; HTML tĩnh → BS4/cheerio (10x nhanh hơn)
+- *"Lưu data ở đâu?"* → CSV, PostgreSQL, Google Sheets API, MongoDB — tùy yêu cầu
 
 ---
 
-### 3. Job Board Auto-Monitor — `/demo/job-monitor`
+## Demo 3 — `/demo/job-monitor` (Job Board Auto-Monitor)
 
-**Ý tưởng bán hàng:** Thay vì F5 LinkedIn mỗi giờ, bot tự quét và chỉ ping khi có job mới match keyword.
+### Ý tưởng bán hàng
+Thay vì F5 LinkedIn mỗi giờ, bot tự quét 3 nguồn và chỉ ping Telegram khi có job mới match keyword.
 
-**Logic hoạt động:**
-1. User nhập keywords (vd: "python automation"), nhấn "Scan Now"
-2. Scan animation: lần lượt highlight từng source (LinkedIn → Indeed → Upwork) với delay 1.2s/source, dùng `setTimeout` loop
-3. Sau khi animation xong → filter `MOCK_JOBS` array (15 entries) theo keyword:
-   - So với `job.title.toLowerCase()` và `job.tags[]`
-   - Nếu không match gì → show 6 jobs đầu tiên
-4. Nhấn "Notify →" trên một job → hiện popup Telegram notification ở góc dưới phải, tự ẩn sau 4 giây
+### Tính năng v2
+- **Bộ lọc nâng cao** — Keywords + Job Type (Remote/Hybrid/On-site)
+- **Source tabs** — Filter kết quả theo LinkedIn / Indeed / Upwork sau khi scan
+- **Per-source count** — Hiện số job tìm được từng nguồn ngay khi scan xong
+- **Telegram window** — Giống Demo 1, styled như Telegram dark app, hiện alert khi click "Notify via Telegram"
+- **Monitor Schedule panel** — Countdown đếm ngược đến lần scan tiếp theo (30 min), last scan time, trạng thái Telegram active
+- **`NextScanCountdown` component** — `useEffect` tick mỗi giây, reset về 1800 khi về 0
 
-**Tại sao dùng mock data?** — LinkedIn, Indeed đều chặn scraping nghiêm. Demo này minh họa UX/flow của bot thực, không phải live scraper.
+### Logic
+**runScan:** Animate từng source với setTimeout 1.3s/source → sau đó filter MOCK_JOBS theo keywords + jobType → set sourceCounts → hiện kết quả
 
-**File quan trọng:**
-- `app/demo/job-monitor/mockJobs.ts` — 15 job objects (title, company, salary, source, tags)
-- `app/demo/job-monitor/page.tsx` — scan animation + filter + popup
+**Filter UI:** `displayed = useMemo()` filter theo `sourceFilter` state → re-render ngay không cần re-scan
 
-**Câu hỏi khách hàng hay hỏi:**
-- *"Có scrape LinkedIn thật được không?"* → Khó và rủi ro bị ban. Thực tế dùng RSS feed, unofficial API, hoặc Apify
-- *"Delay bao lâu quét 1 lần?"* → Thường 15–30 phút để tránh rate limit
-- *"Có filter theo lương/location không?"* → Có, thêm điều kiện filter vào code là xong
+**TelegramWindow:** Component riêng, nhận messages array, auto-scroll, Telegram dark theme
 
----
+**Tại sao mock data?** LinkedIn/Indeed block scraping. Demo minh họa flow/UX, code Python thật vẫn hiển thị.
 
-### 4. Chrome Extension — Task Automator — `/demo/chrome-extension`
-
-**Ý tưởng bán hàng:** Nhân viên phải điền cùng form đó 50 lần/ngày. Extension làm trong vài giây, không cần rời trình duyệt.
-
-**Logic hoạt động:**
-1. Nhấn "▶ Run Extension" → `setInterval` đi qua 6 steps (0→5), mỗi step cách 1.1 giây
-2. Mỗi step cập nhật `step` state → các field trong "fake browser" thay đổi conditional render:
-   - `step >= 1` → Company Name hiện "Acme Corporation" + highlight border cyan
-   - `step >= 2` → Email hiện "orders@acme.com"
-   - `step >= 3` → Category hiện "Enterprise"
-   - `step >= 4` → Order ID "ORD-2024-88712" xuất hiện (màu vàng → xanh khi xong)
-3. Khi xong → hiện before/after comparison (2h vs ~5.5s)
-4. Tab manifest.json / content.js show code thực của Chrome Extension
-
-**Cấu trúc Chrome Extension thực:**
-- `manifest.json` — khai báo permissions (`activeTab`, `storage`, `scripting`), link popup và content script
-- `content.js` — inject vào page, lắng nghe message từ popup, dùng `querySelector` fill form, dispatch `input`/`change` events để React/Vue nhận được
-- `popup.html` — UI nút bấm để user trigger
-
-**File quan trọng:**
-- `app/demo/chrome-extension/page.tsx` — toàn bộ simulator, pure frontend
-
-**Câu hỏi khách hàng hay hỏi:**
-- *"Extension có hoạt động trên mọi website không?"* → Có nếu cấp `"matches": ["<all_urls>"]` trong manifest
-- *"Có lên Chrome Web Store không?"* → Có thể, hoặc cài private (unpacked) trong nội bộ
-- *"Có lấy data từ trang về được không?"* → Có, `content.js` read DOM rồi `sendResponse` về popup
+### Câu hỏi khách hàng hay hỏi
+- *"Scrape LinkedIn thật không?"* → Khó, rủi ro ban. Thực tế: RSS feed, Apify actor, unofficial API
+- *"Quét bao lâu 1 lần?"* → 15-30 phút để tránh rate limit
+- *"Filter theo lương/location?"* → Có, thêm điều kiện filter vào code
 
 ---
 
-## Sections trang chính (app/page.tsx)
+## Demo 4 — `/demo/chrome-extension` (Chrome Extension Task Automator)
 
-- **Hero**: avatar bên phải, text bên trái, badge "Available · $15/hr", 2 CTA buttons, tech tags
-- **Skills**: 6 cards (Python, Scraping, Telegram, API, Browser, Chrome Extension)
-- **Projects**: 4 cards với nút "View Demo →" link tới `/demo/[slug]`
-- **Process**: 4 bước Understand → Plan → Build → Deliver
-- **Contact**: Upwork link + copy email button
+### Ý tưởng bán hàng
+Extension tự điền form lặp lại hàng chục lần/ngày chỉ trong vài giây — nhân viên không cần rời trình duyệt.
+
+### Tính năng v2
+- **3 Workflow presets** — Vendor Order Form / Competitor Price Check / Lead Form Fill (mỗi cái có steps riêng)
+- **Batch Mode** — Xử lý 5 records liên tiếp, hiện progress bar + bảng queue status (Queued → Processing → Done)
+- **Extracted Data table** — Sau single run, hiện bảng dữ liệu đã extract từ page
+- **Time Comparison bar chart** — So sánh manual time vs extension time với progress bars
+- **Fake browser frame** — URL bar thay đổi theo workflow, extension icon pulse khi chạy
+
+### Logic
+**run (single):** `setTimeout` mỗi 900ms cho từng step → update `step` state → conditional render form fields
+
+**runBatch:** Tính offset cho mỗi row (`rowStart = ri * steps.length * 400ms`) → nested setTimeout → `batchRow` + `step` cùng update → bảng hiện realtime status
+
+**FormFields:** `fieldValues` computed từ `step` state — `step >= i` thì field có value, đồng thời highlight border cyan khi `step === i`
+
+**3 Workflows typed với `as const`:** TypeScript suy ra type `WorkflowId` từ union, không cần enum
+
+### Câu hỏi khách hàng hay hỏi
+- *"Chạy trên mọi website không?"* → Có, cấp `"matches": ["<all_urls>"]` trong manifest
+- *"Cài Chrome Web Store không?"* → Có thể; hoặc private install (unpacked) cho nội bộ công ty
+- *"Lấy data từ trang về được không?"* → Có, `content.js` read DOM → `sendResponse` về popup
+
+---
+
+## Trang chính (app/page.tsx)
+- **Hero**: avatar bên phải (next/image, glow ring), badge "Available · $15/hr", 2 CTAs, tech tags
+- **Skills**: 6 cards
+- **Projects**: 4 cards, mỗi card có nút "View Demo →"
+- **Process / Contact / Footer**: giữ nguyên
