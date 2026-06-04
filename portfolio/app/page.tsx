@@ -85,7 +85,7 @@ const steps = [
   },
 ];
 
-const UPWORK_URL = "https://www.upwork.com/freelancers/~YOUR_UPWORK_ID";
+const UPWORK_URL = "https://www.upwork.com/freelancers/~012e9e4cf475446b7e";
 const EMAIL = "chinguyen10022000@gmail.com";
 
 export default function Home() {
