@@ -15,6 +15,10 @@ app/
       page.tsx                — Demo 3: Job Board Monitor
       mockJobs.ts             — 15 job entries mẫu
     chrome-extension/page.tsx — Demo 4: Chrome Extension Automator
+    google-sheets/page.tsx    — Demo 5: Google Sheets Auto-Sync
+    report-generator/page.tsx — Demo 6: Automated Report Generator
+    discord-bot/page.tsx      — Demo 7: Discord Bot
+    email-automator/page.tsx  — Demo 8: Email Inbox Automator
   api/demo/
     price/route.ts            — CoinGecko simple/price proxy (+ market_cap, vol)
     chart/route.ts            — CoinGecko market_chart 24h proxy
@@ -161,8 +165,98 @@ Extension tự điền form lặp lại hàng chục lần/ngày chỉ trong và
 
 ---
 
+---
+
+## Demo 5 — `/demo/google-sheets` (Google Sheets Auto-Sync)
+
+### Ý tưởng bán hàng
+Scraper/bot chạy xong → data tự vào Google Sheets, không cần copy-paste.
+
+### Tính năng
+- **Source selector** — Products / Crypto Prices / Job Listings, sheet name input, sync interval
+- **Mock spreadsheet** — Grid giống Google Sheets thật, frozen header, row xuất hiện từng cái với cyan highlight fade khi sync
+- **Live stats panel** — Rows Written, Cells Updated, Sync Speed (rows/s), Last Sync, Connection status
+- **Animated log terminal** — Log từng bước: auth → fetch → open sheet → write rows
+- **Python code snippet** — gspread + google-auth code thực tế
+
+### Logic
+**handleSync:** setTimeout chain để animate logs (320ms/step) + rows xuất hiện (140ms/row delay). Row status: `writing` (cyan highlight) → `done` (normal). Stats counter increment realtime. Không có API call thật — toàn bộ là mock + animation.
+
+**Tags:** Python, Google Sheets API, gspread, OAuth2  
+**Result:** "Eliminated 3h/day of manual copy-paste"
+
+---
+
+## Demo 6 — `/demo/report-generator` (Automated Report Generator)
+
+### Ý tưởng bán hàng
+Mỗi sáng 8h, báo cáo tổng hợp gửi thẳng email — không cần ai làm thủ công.
+
+### Tính năng
+- **Config bar** — Multi-select data sources, date range, format (HTML/PDF/Both), Generate button
+- **5-step progress tracker** — Collecting → Aggregating → Building Charts → Formatting → Ready (sequential animate 700ms/step)
+- **Report Preview** — Trang báo cáo thật: header dark gradient, 3 stats cards, SVG bar chart (grow animation) + SVG line chart (stroke-dashoffset draw animation), top-5 products table
+- **Delivery config** — Email input, schedule select, "Set" toggle → marked as scheduled
+- **Python code snippet** — pandas + jinja2 + smtplib + schedule
+
+### Components
+**BarChart:** Nhận `animate` prop, CSS transition `width` từ 0% lên với delay 120ms/bar.
+**LineChart:** SVG với `strokeDashoffset` transition từ pathLen → 0, gradient fill, dots xuất hiện sau.
+Report preview render trong light theme (white bg) giống báo cáo PDF thật.
+
+**Tags:** Python, Pandas, Jinja2, SMTP, Matplotlib  
+**Result:** "Daily reports auto-delivered at 8 AM, zero manual work"
+
+---
+
+## Demo 7 — `/demo/discord-bot` (Discord Bot)
+
+### Ý tưởng bán hàng
+Bot Discord tự trả lời commands, monitor kênh, gửi alert real-time cho toàn server.
+
+### Tính năng
+- **Mock Discord UI** — `#313338` bg, `#2b2d31` sidebar, channel list (4 kênh), member list, message area với rich embeds
+- **5 Slash Commands** — `/price`, `/alert set`, `/status`, `/scrape`, `/help` — click → typing indicator 1.2s → rich embed response
+- **Rich Embeds** — Colored left border, field grid 2 cột, footer, BOT badge, bold markdown support
+- **Channel Monitor** — Toggle bật/tắt, fake messages stream mỗi 2.5s, bot detect keyword → embed alert
+- **Python code snippet** — discord.py + slash commands + `@tasks.loop`
+
+### Logic
+**handleCommand:** Add user message → setIsTyping → 1200ms → add bot embed response.
+**toggleMonitor:** `setInterval` 2500ms feed MONITOR_FEED → check keyword match → bot reply embed nếu match.
+Escape `\${...}` trong Python f-strings để tránh JS template literal conflict.
+
+**Tags:** Python, discord.py, Slash Commands, Rich Embeds, asyncio  
+**Result:** "Automated support for 500+ member server"
+
+---
+
+## Demo 8 — `/demo/email-automator` (Email Inbox Automator)
+
+### Ý tưởng bán hàng
+Script tự đọc inbox, phân loại, auto-reply theo template — 80% email xử lý tự động.
+
+### Tính năng
+- **12 mock emails** — Mix orders, invoices, newsletters, spam, urgent, job alerts
+- **3 tabs** — Inbox (click để expand body) / Rules (add/xóa rule) / Templates (2 preset)
+- **Rule Builder** — 5 default rules, có thể add rule mới (condition + operator + value + action)
+- **"Run Rules" button** — Animate từng email: highlight → badge xuất hiện (AUTO-REPLIED/FORWARDED/ARCHIVED/SPAM/PRIORITY)
+- **Stats bar** — 6 metrics: Processed, Replied, Forwarded, Archived, Spam, Time Saved
+- **Log terminal** — Hiển thị từng action thực hiện, auto-scroll
+- **Python code snippet** — imaplib + smtplib + email parsing
+
+### Logic
+**applyRules:** Loop qua rules array, check condition (subject/from/body) + operator (contains/equals/starts_with) → return first matching status.
+**handleRunRules:** Delay 450ms/email → set status → update stats. `showAddRule` state cho inline "Add Rule" form.
+**Reset demo** button xuất hiện sau khi done để chạy lại từ đầu.
+
+**Tags:** Python, Gmail API, IMAP, SMTP, imaplib  
+**Result:** "Automated 80% of inbox management, saved 2.5h/day"
+
+---
+
 ## Trang chính (app/page.tsx)
 - **Hero**: avatar bên phải (next/image, glow ring), badge "Available · $15/hr", 2 CTAs, tech tags
 - **Skills**: 6 cards
-- **Projects**: 4 cards, mỗi card có nút "View Demo →"
+- **Projects**: 8 cards (4 cũ + 4 mới), mỗi card có nút "View Demo →"
 - **Process / Contact / Footer**: giữ nguyên

@@ -66,6 +66,34 @@ const projects = [
     result: "Reduced task time from 2h to under 5min",
     demo: "/demo/chrome-extension",
   },
+  {
+    title: "Google Sheets Auto-Sync",
+    desc: "Automatically syncs scraped data or bot output directly into Google Sheets via the Sheets API — no manual copy-paste ever again.",
+    tags: ["Python", "Google Sheets API", "gspread", "OAuth2"],
+    result: "Eliminated 3h/day of manual copy-paste",
+    demo: "/demo/google-sheets",
+  },
+  {
+    title: "Automated Report Generator",
+    desc: "Collects data from multiple sources, aggregates it with Pandas, renders charts and tables, and delivers a formatted report by email on schedule.",
+    tags: ["Python", "Pandas", "Jinja2", "SMTP"],
+    result: "Daily reports auto-delivered at 8 AM",
+    demo: "/demo/report-generator",
+  },
+  {
+    title: "Discord Bot",
+    desc: "A full-featured Discord bot with slash commands, rich embeds, channel monitoring, and real-time price/job alerts for your server.",
+    tags: ["Python", "discord.py", "Slash Commands", "asyncio"],
+    result: "Automated support for 500+ member server",
+    demo: "/demo/discord-bot",
+  },
+  {
+    title: "Email Inbox Automator",
+    desc: "Connects to Gmail/IMAP, applies custom rules to auto-reply, forward, archive, or flag incoming emails — 80% of inbox handled automatically.",
+    tags: ["Python", "Gmail API", "IMAP", "SMTP"],
+    result: "Automated 80% of inbox, saved 2.5h/day",
+    demo: "/demo/email-automator",
+  },
 ];
 
 const steps = [
