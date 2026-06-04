@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 const skills = [
   {
@@ -41,24 +42,28 @@ const projects = [
     desc: "A bot that monitors crypto/stock prices across multiple sources and sends instant Telegram notifications when target conditions are met.",
     tags: ["Python", "Telegram API", "WebSocket"],
     result: "Reduced manual monitoring by 100%",
+    demo: "/demo/price-alert",
   },
   {
     title: "E-commerce Data Scraper",
     desc: "Multi-site scraper that extracts product data, prices, and availability from major e-commerce platforms on a configurable schedule.",
     tags: ["Playwright", "Python", "PostgreSQL"],
     result: "Scraped 50,000+ products/day reliably",
+    demo: "/demo/scraper",
   },
   {
     title: "Job Board Auto-Monitor",
     desc: "Automated tool that watches job boards for new listings matching criteria and notifies via Telegram — no more manual refreshing.",
     tags: ["Selenium", "Python", "REST API"],
     result: "Saved 5+ hours/day of manual checks",
+    demo: "/demo/job-monitor",
   },
   {
     title: "Chrome Extension — Task Automator",
     desc: "Browser extension that automates repetitive in-browser workflows: form fills, data extraction, and multi-step click sequences.",
     tags: ["JavaScript", "Chrome API", "REST API"],
     result: "Reduced task time from 2h to under 5min",
+    demo: "/demo/chrome-extension",
   },
 ];
 
@@ -236,8 +241,16 @@ export default function Home() {
                     </span>
                   ))}
                 </div>
-                <div className="text-xs text-cyan-400 font-medium">
-                  ✓ {project.result}
+                <div className="flex items-center justify-between mt-auto">
+                  <div className="text-xs text-cyan-400 font-medium">
+                    ✓ {project.result}
+                  </div>
+                  <Link
+                    href={project.demo}
+                    className="text-xs px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded-lg hover:border-cyan-500 hover:text-cyan-400 transition-colors"
+                  >
+                    View Demo →
+                  </Link>
                 </div>
               </div>
             ))}
