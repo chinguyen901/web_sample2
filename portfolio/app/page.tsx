@@ -119,6 +119,36 @@ const steps = [
   },
 ];
 
+const experience = {
+  company: "TMA Solutions",
+  role: "Software Engineer",
+  period: "Aug 2023 – Present",
+  projects: [
+    {
+      name: "5G OAM Platform",
+      desc: "Developed C++ OAM Agent — middleware connecting Network Management System (via NETCONF/YANG + ConfD) to 5G base station components (CU-CP, CU-UP, DU) via ZMQ. Implemented Fault Management, Performance Management, and Configuration Management features.",
+      tags: ["C++", "NETCONF/YANG", "ConfD", "ZMQ", "Docker", "GTest/GMock"],
+      demos: [
+        { label: "CM Flow Visualizer", href: "/demo/cm-flow" },
+        { label: "FM Alarm Dashboard", href: "/demo/fm-dashboard" },
+        { label: "OAM Agent Startup", href: "/demo/oam-agent" },
+      ],
+    },
+    {
+      name: "Network Management System",
+      desc: "Built middleware and automation tools for telecom data transmission and validation. Developed Python services processing data via Kafka, SNMP, and SFTP pipelines.",
+      tags: ["Python", "Kafka", "SNMP", "SFTP", "Docker", "Linux"],
+      demos: [],
+    },
+    {
+      name: "InstallShield / Mobile App",
+      desc: "Maintained installation packages and mobile application stability. Fixed Android/iOS bugs and performed release support across multiple deployment cycles.",
+      tags: ["InstallShield", "Android Studio", "Xcode", "Git"],
+      demos: [],
+    },
+  ],
+};
+
 const UPWORK_URL = "https://www.upwork.com/freelancers/~012e9e4cf475446b7e";
 const EMAIL = "chinguyen10022000@gmail.com";
 
@@ -140,7 +170,7 @@ export default function Home() {
             chi.dev
           </span>
           <div className="hidden md:flex gap-7 text-sm text-zinc-400">
-            {["Skills", "Projects", "Process", "Contact"].map((item) => (
+            {["Skills", "Experience", "Projects", "Process", "Contact"].map((item) => (
               <a
                 key={item}
                 href={`#${item.toLowerCase()}`}
@@ -256,6 +286,73 @@ export default function Home() {
                 <p className="text-sm text-zinc-500 leading-relaxed">
                   {skill.desc}
                 </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Experience ── */}
+      <section id="experience" className="py-24 px-6 border-t border-zinc-800/60">
+        <div className="max-w-5xl mx-auto">
+          <h2 className="text-2xl font-bold mb-2">Work Experience</h2>
+          <p className="text-zinc-500 mb-12">Full-time engineering roles</p>
+
+          {/* Company header */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-8">
+            <div>
+              <span className="text-lg font-semibold text-zinc-50">
+                {experience.company}
+              </span>
+              <span className="mx-3 text-zinc-700">·</span>
+              <span className="text-zinc-400">{experience.role}</span>
+            </div>
+            <span className="font-mono text-xs text-cyan-400 bg-cyan-400/10 border border-cyan-400/20 rounded-full px-3 py-1">
+              {experience.period}
+            </span>
+          </div>
+
+          {/* Projects */}
+          <div className="flex flex-col gap-5 pl-4 border-l border-zinc-800">
+            {experience.projects.map((proj) => (
+              <div
+                key={proj.name}
+                className="relative p-6 rounded-xl border border-zinc-800 bg-zinc-900 hover:border-zinc-700 transition-all"
+              >
+                {/* timeline dot */}
+                <div className="absolute -left-[21px] top-7 w-2.5 h-2.5 rounded-full bg-cyan-500 border-2 border-zinc-950" />
+
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                  <h3 className="font-semibold text-zinc-50">{proj.name}</h3>
+                  {proj.demos.length > 0 && (
+                    <div className="flex flex-wrap gap-2 shrink-0">
+                      {proj.demos.map((d) => (
+                        <Link
+                          key={d.href}
+                          href={d.href}
+                          className="text-xs px-3 py-1 rounded-lg border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10 hover:border-cyan-500 transition-colors"
+                        >
+                          {d.label} →
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-sm text-zinc-400 leading-relaxed mb-4">
+                  {proj.desc}
+                </p>
+
+                <div className="flex flex-wrap gap-2">
+                  {proj.tags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-xs px-2 py-0.5 rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700"
+                    >
+                      {tag}
+                    </span>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
