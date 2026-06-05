@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import Link from "next/link";
 
 type Severity = "CRITICAL" | "MAJOR" | "MINOR";
-type AlarmStatus = "ACTIVE" | "CLEARING" | "CLEARED";
+type AlarmStatus = "ACTIVE" | "ACKNOWLEDGED" | "CLEARING" | "CLEARED";
+type SeverityFilter = "ALL" | Severity;
 
 interface Alarm {
   id: string;
@@ -14,39 +15,15 @@ interface Alarm {
   status: AlarmStatus;
   time: string;
   desc: string;
+  ackedAt?: string;
 }
 
 const ALARM_PRESETS = [
-  {
-    type: "LINK_DOWN",
-    source: "gNB-CU-CP / F1 Interface",
-    severity: "CRITICAL" as Severity,
-    desc: "F1 interface link between CU-CP and DU is down. Cells in affected DU are unavailable.",
-  },
-  {
-    type: "CPU_HIGH",
-    source: "gNB-DU / Scheduler",
-    severity: "MAJOR" as Severity,
-    desc: "DU CPU utilization exceeded 90% threshold. Scheduling performance may be degraded.",
-  },
-  {
-    type: "SYNC_LOSS",
-    source: "gNB-DU / PTP Sync",
-    severity: "CRITICAL" as Severity,
-    desc: "PTP timing synchronization lost. Radio transmission accuracy compromised.",
-  },
-  {
-    type: "CELL_UNAVAILABLE",
-    source: "gNB-CU-CP / Cell 1",
-    severity: "MAJOR" as Severity,
-    desc: "NR cell administratively disabled or failed to activate after configuration push.",
-  },
-  {
-    type: "MEM_THRESHOLD",
-    source: "gNB-CU-UP / User Plane",
-    severity: "MINOR" as Severity,
-    desc: "Memory usage at 80% of configured threshold. Monitor for further growth.",
-  },
+  { type: "LINK_DOWN", source: "gNB-CU-CP / F1 Interface", severity: "CRITICAL" as Severity, desc: "F1 interface link between CU-CP and DU is down. Cells in affected DU are unavailable." },
+  { type: "CPU_HIGH", source: "gNB-DU / Scheduler", severity: "MAJOR" as Severity, desc: "DU CPU utilization exceeded 90% threshold. Scheduling performance may be degraded." },
+  { type: "SYNC_LOSS", source: "gNB-DU / PTP Sync", severity: "CRITICAL" as Severity, desc: "PTP timing synchronization lost. Radio transmission accuracy compromised." },
+  { type: "CELL_UNAVAILABLE", source: "gNB-CU-CP / Cell 1", severity: "MAJOR" as Severity, desc: "NR cell administratively disabled or failed to activate after configuration push." },
+  { type: "MEM_THRESHOLD", source: "gNB-CU-UP / User Plane", severity: "MINOR" as Severity, desc: "Memory usage at 80% of configured threshold. Monitor for further growth." },
 ] as const;
 
 const SEV_STYLE: Record<Severity, string> = {
@@ -61,14 +38,53 @@ const SEV_DOT: Record<Severity, string> = {
   MINOR: "bg-yellow-500",
 };
 
+// Fake 30-min alarm history data
+const HISTORY_POINTS = Array.from({ length: 30 }, (_, i) => {
+  const base = i < 10 ? 1 : i < 20 ? 3 : i < 25 ? 5 : 2;
+  return Math.max(0, base + Math.floor(Math.random() * 3 - 1));
+});
+
 let alarmSeq = 1;
 function makeId() { return `ALM-${String(alarmSeq++).padStart(4, "0")}`; }
-function now() {
-  return new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-}
+function now() { return new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
 
 const FLOW_NODES = ["gNB Component", "ZMQ Queue", "OAM Agent", "ConfD", "NMS"];
-const CLEAR_NODES = ["gNB Component", "ZMQ Queue", "OAM Agent", "ConfD", "NMS"];
+
+function AlarmHistoryChart({ alarms }: { alarms: Alarm[] }) {
+  const active = alarms.filter((a) => a.status !== "CLEARED").length;
+  const points = [...HISTORY_POINTS.slice(1), active];
+  const max = Math.max(...points, 1);
+  const w = 280; const h = 48;
+
+  const path = points.map((v, i) => {
+    const x = (i / (points.length - 1)) * w;
+    const y = h - (v / max) * (h - 4) - 2;
+    return `${i === 0 ? "M" : "L"}${x},${y}`;
+  }).join(" ");
+
+  const area = `${path} L${w},${h} L0,${h} Z`;
+
+  return (
+    <div className="mb-6 p-4 rounded-xl border border-zinc-800 bg-zinc-900">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs text-zinc-500 font-mono uppercase tracking-wider">Alarm History (30 min)</span>
+        <span className="text-xs text-zinc-600 font-mono">peak: {max} · now: {active}</span>
+      </div>
+      <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 48 }}>
+        <defs>
+          <linearGradient id="histGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        <path d={area} fill="url(#histGrad)" />
+        <path d={path} fill="none" stroke="#ef4444" strokeWidth="1.5" />
+        {/* Last point dot */}
+        <circle cx={w} cy={h - (active / max) * (h - 4) - 2} r="3" fill="#ef4444" />
+      </svg>
+    </div>
+  );
+}
 
 export default function FmDashboardPage() {
   const [alarms, setAlarms] = useState<Alarm[]>([]);
@@ -77,13 +93,32 @@ export default function FmDashboardPage() {
   const [flowMode, setFlowMode] = useState<"inject" | "clear" | null>(null);
   const [injecting, setInjecting] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>("ALL");
+  const [liveMode, setLiveMode] = useState(false);
+  const liveModeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [detailTab, setDetailTab] = useState<"details" | "payload">("details");
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => { setDetailTab("details"); }, [selected?.id]); // reset tab on alarm change
+
+  const copyPayload = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
 
   const counts = {
-    CRITICAL: alarms.filter((a) => a.severity === "CRITICAL" && a.status === "ACTIVE").length,
-    MAJOR: alarms.filter((a) => a.severity === "MAJOR" && a.status === "ACTIVE").length,
-    MINOR: alarms.filter((a) => a.severity === "MINOR" && a.status === "ACTIVE").length,
+    CRITICAL: alarms.filter((a) => a.severity === "CRITICAL" && a.status !== "CLEARED").length,
+    MAJOR: alarms.filter((a) => a.severity === "MAJOR" && a.status !== "CLEARED").length,
+    MINOR: alarms.filter((a) => a.severity === "MINOR" && a.status !== "CLEARED").length,
     CLEARED: alarms.filter((a) => a.status === "CLEARED").length,
   };
+
+  const filteredAlarms = useMemo(() =>
+    severityFilter === "ALL" ? alarms : alarms.filter((a) => a.severity === severityFilter),
+    [alarms, severityFilter]
+  );
 
   const animateFlow = (mode: "inject" | "clear", onDone?: () => void) => {
     setFlowMode(mode);
@@ -120,6 +155,37 @@ export default function FmDashboardPage() {
     });
   }, [injecting]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const injectAlarmRef = useRef(injectAlarm);
+  useEffect(() => { injectAlarmRef.current = injectAlarm; }, [injectAlarm]);
+
+  useEffect(() => {
+    if (!liveMode) {
+      if (liveModeTimerRef.current) {
+        clearTimeout(liveModeTimerRef.current);
+        liveModeTimerRef.current = null;
+      }
+      return;
+    }
+    const scheduleNext = () => {
+      const delay = 3500 + Math.random() * 1500;
+      liveModeTimerRef.current = setTimeout(() => {
+        const preset = ALARM_PRESETS[Math.floor(Math.random() * ALARM_PRESETS.length)];
+        injectAlarmRef.current(preset);
+        scheduleNext();
+      }, delay);
+    };
+    scheduleNext();
+    return () => {
+      if (liveModeTimerRef.current) clearTimeout(liveModeTimerRef.current);
+    };
+  }, [liveMode]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const acknowledgeAlarm = useCallback((id: string) => {
+    const ackTime = now();
+    setAlarms((prev) => prev.map((a) => a.id === id ? { ...a, status: "ACKNOWLEDGED" as AlarmStatus, ackedAt: ackTime } : a));
+    setSelected((prev) => prev?.id === id ? { ...prev, status: "ACKNOWLEDGED", ackedAt: ackTime } : prev);
+  }, []);
+
   const clearAlarm = useCallback((id: string) => {
     setAlarms((prev) => prev.map((a) => a.id === id ? { ...a, status: "CLEARING" as AlarmStatus } : a));
     animateFlow("clear", () => {
@@ -133,7 +199,14 @@ export default function FmDashboardPage() {
     setSelected(null);
   };
 
-  const flowNodes = flowMode === "clear" ? CLEAR_NODES : FLOW_NODES;
+  const SEV_NUM: Record<Severity, string> = { CRITICAL: "0x03", MAJOR: "0x02", MINOR: "0x01" };
+
+  const buildZmqPayload = (alarm: Alarm) => {
+    const num = parseInt(alarm.id.replace("ALM-", "")) || 1;
+    const hexId = `0x${num.toString(16).padStart(4, "0").toUpperCase()}`;
+    const ts = (Date.now() / 1000).toFixed(3);
+    return `FM_ALARM_IND {\n  alarm_id:    ${hexId},\n  alarm_type:  ${alarm.type},\n  severity:    ${alarm.severity}  [${SEV_NUM[alarm.severity]}],\n  source:      "${alarm.source}",\n  timestamp:   ${ts},\n  sequence_no: ${num + 41},\n  description: "${alarm.desc.slice(0, 52)}...",\n}`;
+  };
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-50">
@@ -145,7 +218,15 @@ export default function FmDashboardPage() {
           </Link>
           <span className="text-zinc-700">/</span>
           <span className="text-sm text-zinc-400">FM Alarm Dashboard</span>
-          <span className="ml-auto text-xs text-zinc-600 hidden md:block">5G OAM · Fault Management</span>
+          <div className="ml-auto flex items-center gap-3">
+            {liveMode && (
+              <span className="flex items-center gap-1.5 text-xs text-red-400 font-mono animate-pulse">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                LIVE
+              </span>
+            )}
+            <span className="text-xs text-zinc-600 hidden md:block">5G OAM · Fault Management</span>
+          </div>
         </div>
       </nav>
 
@@ -158,12 +239,15 @@ export default function FmDashboardPage() {
           </div>
           <h1 className="text-3xl md:text-4xl font-bold mb-3">FM Alarm Dashboard</h1>
           <p className="text-zinc-400 max-w-2xl">
-            Real-time alarm lifecycle management — from gNB fault detection through ZMQ to OAM Agent, ConfD, and NMS notification.
+            Real-time alarm lifecycle: ACTIVE → ACKNOWLEDGED → CLEARING → CLEARED — from gNB fault detection through ZMQ to OAM Agent, ConfD, and NMS notification.
           </p>
         </div>
 
-        {/* Stats */}
-        <div className="flex flex-wrap gap-3 mb-6">
+        {/* Alarm history chart */}
+        <AlarmHistoryChart alarms={alarms} />
+
+        {/* Stats + controls */}
+        <div className="flex flex-wrap gap-3 mb-4">
           {[
             { label: "CRITICAL", count: counts.CRITICAL, style: "text-red-400 bg-red-900/20 border-red-800/60" },
             { label: "MAJOR", count: counts.MAJOR, style: "text-amber-400 bg-amber-900/20 border-amber-800/60" },
@@ -177,11 +261,21 @@ export default function FmDashboardPage() {
           ))}
 
           <div className="ml-auto flex gap-2">
-            {/* Inject dropdown */}
+            <button
+              onClick={() => setLiveMode((v) => !v)}
+              className={`flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg border font-semibold transition-all ${
+                liveMode
+                  ? "border-red-500 bg-red-600/80 text-white shadow-[0_0_12px_rgba(239,68,68,0.3)]"
+                  : "border-zinc-700 text-zinc-400 hover:border-red-500/60 hover:text-red-400"
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${liveMode ? "bg-white animate-pulse" : "bg-zinc-600"}`} />
+              {liveMode ? "Live ON" : "Live Mode"}
+            </button>
             <div className="relative">
               <button
                 onClick={() => setDropdownOpen((v) => !v)}
-                disabled={injecting}
+                disabled={injecting || liveMode}
                 className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-500 disabled:opacity-50 transition-colors"
               >
                 Inject Fault ▾
@@ -204,29 +298,47 @@ export default function FmDashboardPage() {
                 </div>
               )}
             </div>
-            <button
-              onClick={clearAll}
-              className="text-sm px-4 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition-colors"
-            >
+            <button onClick={clearAll} className="text-sm px-4 py-2 rounded-lg border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 transition-colors">
               Clear All
             </button>
           </div>
         </div>
 
+        {/* Severity filter chips */}
+        <div className="flex gap-2 mb-6">
+          {(["ALL", "CRITICAL", "MAJOR", "MINOR"] as SeverityFilter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setSeverityFilter(f)}
+              className={`text-xs px-3 py-1 rounded-full border font-mono transition-all ${
+                severityFilter === f
+                  ? f === "ALL" ? "border-zinc-500 bg-zinc-700 text-zinc-200"
+                  : f === "CRITICAL" ? "border-red-500 bg-red-900/30 text-red-300"
+                  : f === "MAJOR" ? "border-amber-500 bg-amber-900/30 text-amber-300"
+                  : "border-yellow-500 bg-yellow-900/30 text-yellow-300"
+                  : "border-zinc-800 text-zinc-500 hover:border-zinc-600"
+              }`}
+            >
+              {f}
+              {f !== "ALL" && counts[f] > 0 && <span className="ml-1 opacity-70">({counts[f]})</span>}
+            </button>
+          ))}
+        </div>
+
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Left — Alarm Table */}
+          {/* Left — Alarm Table + Detail panel */}
           <div className="flex flex-col gap-4">
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
               <div className="px-4 py-3 border-b border-zinc-800 text-xs text-zinc-500 font-mono uppercase tracking-wider">
-                Active Alarms
+                Active Alarms {severityFilter !== "ALL" && `— filtered: ${severityFilter}`}
               </div>
-              {alarms.length === 0 ? (
+              {filteredAlarms.length === 0 ? (
                 <div className="p-8 text-center text-zinc-600 text-sm">
-                  No alarms — inject a fault to begin
+                  {alarms.length === 0 ? "No alarms — inject a fault to begin" : `No ${severityFilter} alarms`}
                 </div>
               ) : (
                 <div className="divide-y divide-zinc-800/60 max-h-80 overflow-auto">
-                  {alarms.map((alarm) => (
+                  {filteredAlarms.map((alarm) => (
                     <button
                       key={alarm.id}
                       onClick={() => setSelected(alarm)}
@@ -235,9 +347,10 @@ export default function FmDashboardPage() {
                       <div className="flex items-center gap-2 mb-1">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${SEV_DOT[alarm.severity]} ${alarm.status === "ACTIVE" ? "animate-pulse" : "opacity-40"}`} />
                         <span className="font-mono text-sm font-semibold text-zinc-100">{alarm.type}</span>
-                        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full border ${
+                        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full border font-mono ${
                           alarm.status === "ACTIVE" ? "text-red-400 border-red-800 bg-red-900/20" :
-                          alarm.status === "CLEARING" ? "text-amber-400 border-amber-800 bg-amber-900/20" :
+                          alarm.status === "ACKNOWLEDGED" ? "text-amber-400 border-amber-800 bg-amber-900/20" :
+                          alarm.status === "CLEARING" ? "text-blue-400 border-blue-800 bg-blue-900/20" :
                           "text-emerald-400 border-emerald-800 bg-emerald-900/20"
                         }`}>{alarm.status}</span>
                       </div>
@@ -251,25 +364,74 @@ export default function FmDashboardPage() {
 
             {/* Detail panel */}
             {selected && (
-              <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
-                <div className="flex items-start justify-between gap-2 mb-3">
+              <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+                <div className="flex items-start justify-between gap-2 px-4 pt-4">
                   <div>
                     <div className="font-mono font-semibold text-zinc-100">{selected.id}</div>
                     <div className="text-xs text-zinc-500 mt-0.5">{selected.source}</div>
                   </div>
-                  <span className={`text-xs px-2 py-1 rounded border ${SEV_STYLE[selected.severity]}`}>
+                  <span className={`text-xs px-2 py-1 rounded border shrink-0 ${SEV_STYLE[selected.severity]}`}>
                     {selected.severity}
                   </span>
                 </div>
-                <p className="text-sm text-zinc-400 leading-relaxed mb-4">{selected.desc}</p>
-                {selected.status === "ACTIVE" && (
-                  <button
-                    onClick={() => clearAlarm(selected.id)}
-                    className="w-full py-2 text-sm rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors"
-                  >
-                    Clear Alarm ✓
-                  </button>
-                )}
+                {/* Tabs */}
+                <div className="flex border-b border-zinc-800 mt-3 px-4">
+                  {(["details", "payload"] as const).map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setDetailTab(tab)}
+                      className={`px-3 py-2 text-xs font-mono transition-colors ${
+                        detailTab === tab
+                          ? "text-cyan-400 border-b-2 border-cyan-500"
+                          : "text-zinc-500 hover:text-zinc-300"
+                      }`}
+                    >
+                      {tab === "details" ? "Details" : "ZMQ Payload"}
+                    </button>
+                  ))}
+                </div>
+                <div className="p-4">
+                  {detailTab === "details" ? (
+                    <>
+                      <p className="text-sm text-zinc-400 leading-relaxed mb-4">{selected.desc}</p>
+                      {selected.ackedAt && (
+                        <div className="mb-3 text-xs font-mono text-amber-400/70">
+                          Acknowledged at {selected.ackedAt}
+                        </div>
+                      )}
+                      <div className="flex gap-2">
+                        {selected.status === "ACTIVE" && (
+                          <button
+                            onClick={() => acknowledgeAlarm(selected.id)}
+                            className="flex-1 py-2 text-sm rounded-lg bg-amber-600 text-white font-semibold hover:bg-amber-500 transition-colors"
+                          >
+                            Acknowledge ✋
+                          </button>
+                        )}
+                        {(selected.status === "ACTIVE" || selected.status === "ACKNOWLEDGED") && (
+                          <button
+                            onClick={() => clearAlarm(selected.id)}
+                            className="flex-1 py-2 text-sm rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-500 transition-colors"
+                          >
+                            Clear Alarm ✓
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="relative">
+                      <pre className="text-xs font-mono text-amber-300 leading-relaxed bg-zinc-950 rounded-lg p-3 overflow-auto whitespace-pre">
+                        {buildZmqPayload(selected)}
+                      </pre>
+                      <button
+                        onClick={() => copyPayload(buildZmqPayload(selected))}
+                        className="absolute top-2 right-2 text-xs font-mono text-zinc-600 hover:text-zinc-300 transition-colors"
+                      >
+                        {copied ? "✓ copied" : "copy"}
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -288,7 +450,7 @@ export default function FmDashboardPage() {
             </div>
 
             <div className="flex flex-col gap-0">
-              {flowNodes.map((node, i) => {
+              {FLOW_NODES.map((node, i) => {
                 const active = flowStep === i;
                 const done = flowStep > i;
                 return (
@@ -303,15 +465,13 @@ export default function FmDashboardPage() {
                       </div>
                       {active && (
                         <div className={`text-xs mt-1 font-mono ${flowMode === "clear" ? "text-emerald-400" : "text-red-400"}`}>
-                          {flowMode === "inject" ? (
-                            ["FM_ALARM_IND via ZMQ", "routing alarm", "format + report", "NETCONF notify", "alarm displayed"][i] ?? ""
-                          ) : (
-                            ["clear signal sent", "ZMQ clear msg", "clear alarm API", "notify cleared", "alarm resolved"][i] ?? ""
-                          )}
+                          {flowMode === "inject"
+                            ? ["FM_ALARM_IND via ZMQ", "routing alarm", "format + report", "NETCONF notify", "alarm displayed"][i] ?? ""
+                            : ["clear signal sent", "ZMQ clear msg", "clear alarm API", "notify cleared", "alarm resolved"][i] ?? ""}
                         </div>
                       )}
                     </div>
-                    {i < flowNodes.length - 1 && (
+                    {i < FLOW_NODES.length - 1 && (
                       <div className={`flex justify-center py-1 transition-colors duration-300 ${done || active ? (flowMode === "clear" ? "text-emerald-500" : "text-red-500") : "text-zinc-800"}`}>
                         <div className="text-lg">↓</div>
                       </div>
@@ -319,6 +479,20 @@ export default function FmDashboardPage() {
                   </div>
                 );
               })}
+            </div>
+
+            {/* Alarm lifecycle legend */}
+            <div className="mt-5 p-3 rounded-lg bg-zinc-800/40 border border-zinc-700/40">
+              <div className="text-xs text-zinc-500 font-mono mb-2 uppercase tracking-wider">Alarm Lifecycle</div>
+              <div className="flex items-center gap-1 flex-wrap text-xs font-mono">
+                <span className="px-2 py-0.5 rounded-full bg-red-900/30 text-red-300 border border-red-800">ACTIVE</span>
+                <span className="text-zinc-700">→</span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-900/30 text-amber-300 border border-amber-800">ACKNOWLEDGED</span>
+                <span className="text-zinc-700">→</span>
+                <span className="px-2 py-0.5 rounded-full bg-blue-900/30 text-blue-300 border border-blue-800">CLEARING</span>
+                <span className="text-zinc-700">→</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-900/30 text-emerald-300 border border-emerald-800">CLEARED</span>
+              </div>
             </div>
 
             {flowStep < 0 && !injecting && (
@@ -336,6 +510,9 @@ export default function FmDashboardPage() {
           </Link>
           <Link href="/demo/oam-agent" className="text-sm px-4 py-2 border border-zinc-700 text-zinc-400 rounded-lg hover:border-cyan-500 hover:text-cyan-400 transition-colors">
             OAM Agent Startup →
+          </Link>
+          <Link href="/demo/ras-nms" className="text-sm px-4 py-2 border border-zinc-700 text-zinc-400 rounded-lg hover:border-cyan-500 hover:text-cyan-400 transition-colors">
+            NMS / RAS →
           </Link>
         </div>
       </div>

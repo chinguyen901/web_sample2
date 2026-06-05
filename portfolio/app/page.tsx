@@ -136,15 +136,19 @@ const experience = {
     },
     {
       name: "Network Management System",
-      desc: "Built middleware and automation tools for telecom data transmission and validation. Developed Python services processing data via Kafka, SNMP, and SFTP pipelines.",
+      desc: "Built Python middleware and automation tools for telecom data transmission and validation. Developed SNMP/Kafka pipeline ingesting 100+ network device metrics into PostgreSQL via DDC Server, visualized through Virtuora VXM with Zabbix alerting.",
       tags: ["Python", "Kafka", "SNMP", "SFTP", "Docker", "Linux"],
-      demos: [],
+      demos: [
+        { label: "RAS Architecture Demo", href: "/demo/ras-nms" },
+      ],
     },
     {
       name: "InstallShield / Mobile App",
-      desc: "Maintained installation packages and mobile application stability. Fixed Android/iOS bugs and performed release support across multiple deployment cycles.",
+      desc: "Maintained multi-platform installation packages and mobile app stability across release cycles. Delivered InstallShield MSI builds for Windows and supported Android/iOS app releases with bug fixes and CI/CD pipeline maintenance.",
       tags: ["InstallShield", "Android Studio", "Xcode", "Git"],
-      demos: [],
+      demos: [
+        { label: "Build & Deploy Pipeline", href: "/demo/installer" },
+      ],
     },
   ],
 };
@@ -359,13 +363,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── Projects ── */}
+      {/* ── Personal Projects ── */}
       <section
         id="projects"
         className="py-24 px-6 border-t border-zinc-800/60"
       >
         <div className="max-w-5xl mx-auto">
-          <h2 className="text-2xl font-bold mb-2">Projects</h2>
+          <h2 className="text-2xl font-bold mb-2">Personal Projects</h2>
           <p className="text-zinc-500 mb-12">
             Examples of automation work I&apos;ve built
           </p>
